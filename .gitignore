@@ -1,0 +1,7 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+data/embs_real_dat.RData
+data/embs_2D_layout_real_dat.RData
+data/sec4_real_dats.RData
