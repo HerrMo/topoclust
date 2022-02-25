@@ -1,0 +1,335 @@
+## 2.1 Experiments on the synthetic datasets $E_{100}$, $E_{1000}$, $U_{3}$ & $U_{1003}$.
+
+```{r sec2-exp-settings}
+# Number of clusters
+n_g <- 3
+n <- 500 # obs per clust
+lbls <- rep(seq_len(3), each = n)
+
+# UMAP
+k <- 5 # umaps locality parameter
+d <- 2 # dimensionality of embedding
+
+# DBSCAN
+eps_range <- seq(0.01, 50, by = 0.01)
+
+# Data
+equal_dens <- 
+  list(
+    means = c(0, 0.5, 1),
+    n = n,
+    sigs = rep(1, n_g)
+  )
+
+unequal_dens <- 
+  list(
+    p = 3,
+    n = n,
+    means = c(0, 3, 7),
+    sigs = c(0.1, 1, 3)
+  )
+
+exp_settings <- 
+  list(
+    e100 = c(
+      list(p = 100),
+      equal_dens
+    ),
+    e1000 = c(
+      list(p = 1000),
+      equal_dens
+    ),
+    u3 = unequal_dens,
+    u1003 = unequal_dens
+)
+```
+
+```{r sec2-creating-data} 
+cluster_dat <- function(p, means, sigs, n) {
+  cov_mats <- lapply(sigs, function(sig) diag(rep(sig, p * p), p, p))
+
+  clusts <- mapply(function(mu, sig) MASS::mvrnorm(n = n, mu = rep(mu, p), Sigma = sig),
+                   mu = means,
+                   sig = cov_mats,
+                   SIMPLIFY = FALSE)
+
+  do.call(rbind, clusts)
+}
+
+set.seed(112)
+exp_sec2_dat <- lapply(exp_settings, function(set) do.call(cluster_dat, set))
+# set random states for UMAP embeddings reproducibility 
+set.seed(113)
+rand_states <- sample(1:10000000, 4)
+
+# add irrelevant features to create setting U_1000
+exp_sec2_dat$u1003 <- cbind(exp_sec2_dat$u1003, matrix(runif(1500000), ncol = 1000))
+
+# precomputing distances reduces computation time in dbscan if p is large
+exp_sec2_dists <- lapply(exp_sec2_dat, dist)
+
+exp_sec2_emb_dists <- 
+  mapply(function(dis, rand) {
+           emb <- umap::umap(as.matrix(dis), random_state = rand, 
+                             n_neighbors = k, n_components = d, input = "dist")
+           emb_dists <- dist(emb$layout)
+           emb_dists
+         },
+         dis = exp_sec2_dists,
+         rand = rand_states,
+         SIMPLIFY = FALSE)
+```
+
+```{r sec2-cluster-res, eval=FALSE}
+# approx. computation time for eps_range = seq(0.01, 50, by = 0.01): 2.5 h on 7 cores
+cores_to_use <- 7
+exp_sec2_res <- parallel::mclapply(
+  c(exp_sec2_dists, exp_sec2_emb_dists),
+  function(dat) cluster_res(dat, eps_range = eps_range, lbls = lbls),
+  mc.cores = cores_to_use
+)
+
+dt_sec2_res <- cbind(
+  method = rep(c("DBSCAN", "UMAP+DBSCAN"), each = length(exp_settings) * length(eps_range)),
+  setting = rep(names(exp_sec2_res), each = length(eps_range)),
+  eps = rep(eps_range, length(exp_sec2_res)),
+  as.data.table(do.call(rbind, exp_sec2_res))
+)
+
+dt_sec2_res_long <- melt(dt_sec2_res, 
+                         id.vars = c("method", "setting", "eps"), 
+                         measure.vars = c("ARI", "NMI"), 
+                         variable.name = "Measure", 
+                         value.name = "Performance")
+
+# save(dt_sec2_res_long, file = "vignettes/data/res_sec2_long-range.RData")
+```
+
+```{r sec2-plots, echo=FALSE, fig.width = 8, fig.height = 10.5}
+load("data/results/res_sec2_long-range.RData")
+
+# dt_sec2_res_long[method == "DBSCAN", .("maxP" = max(Performance)), by = c("setting", "Measure")]
+
+dt_sec2_res_long[, nic_set := ordered(setting, 
+                                      levels = c("e100", "e1000", "u3", "u1003"), 
+                                      labels = c("E100", "E1000", "U3", "U1003"))]
+
+# round almost zero negative NMI values to zero
+dt_sec2_res_long[, Performance := round(Performance, 4)]
+
+plt_dbs <- 
+  ggplot(dt_sec2_res_long[method == "DBSCAN"]) +
+    geom_line(aes(x = eps, y = Performance, color = Measure, lty = Measure)) +
+    facet_wrap(~ nic_set, scales = "free_x", ncol = 1) +
+    xlab(eps_tex) +
+    ylim(0, 1) +
+    ggtitle("A: DBSCAN")
+
+plt_dbsumap <- 
+  ggplot(dt_sec2_res_long[method != "DBSCAN"]) +
+    geom_line(aes(x = eps, y = Performance, color = Measure, lty = Measure)) +
+    facet_wrap(~ nic_set, scales = "free_x", ncol = 1) +
+    xlab(eps_tex) +
+    ylim(0, 1) +
+    ggtitle("B: DBSCAN+UMAP-5")
+
+plt_dbs + plt_dbsumap + plot_layout(guides = "collect") & theme(legend.position = "bottom")
+# ggsave("vignettes/figures/sec2_clusts_res.png", device = "png", width = 8, height = 10.5)
+```
+
+```{r sec2-opt-perf}
+# Optimal values
+dt_sec2_res_long[method == "DBSCAN", max(Performance), by = c("nic_set", "Measure")]
+dt_temp <- dt_sec2_res_long
+dt_temp[dt_temp[, .I[which.max(Performance)], by = c("method", "nic_set", "Measure")]$V1]
+```
+
+## 2.2 Toy example  
+
+Experiments on the simply toy example. 
+
+```{r toy-example-fgraphs}
+toy_exp <- matrix(c(0, 0.6, 0.7, 1.3, 1.2, 1.5,
+                    0.6, 0, 0.5, 0.75, 1.6, 1.3,
+                    0.7, 0.5, 0, 1.4, 1.3, 1.1,
+                    1.3, 0.75, 1.4, 0, 0.7, 0.75,
+                    1.2, 1.6, 1.3, 0.7, 0, 0.75,
+                    1.5, 1.3, 1.1, 0.75, 0.75, 0),
+                   nrow = 6)
+
+lbls <- c(1, 1, 1, 2, 2, 2)
+ks <- c(k6 = 6, k3 = 3, k2 = 2)
+
+# We use uwot::umap implementation here.
+# Other than umap::umap, which is used in the other experiments, 
+# uwot::umap provides the high dim fuzzy graph, i.e. the topological 
+# representation (fgraph) as sparse matrix, however it is less well 
+# reproducible.
+# - non-zero entries give the membership strength of th edge connecting 
+#   i to j (i.e. prob, similarity in tSNE)
+# - can be used to compare the original distance matrix to the UMAP 
+#   induced distance metric
+# - in uwot::umap default value for min_dist = 0.01 (in contrast to 0.1 
+#   in umap::umap). To make it consistent with the other experiments we 
+#   set it two umap::umap defaults (it does not change results)
+# - "If you are only interested in the fuzzy input graph (e.g. for 
+#   clustering), setting 'n_epochs = 0' will avoid any further 
+#   sparsifying." (see uwot::umap help page)
+min_dist <- 0.1
+toy_dists <- as.dist(toy_exp)
+
+# fuzzy graphs for different values of k (only fgraph --> n_epochs = 0)
+l_embs_toy <- lapply(
+  ks, 
+  function(k) uwot::umap(toy_dists, n_neighbors = k, ret_extra = "fgraph", 
+                         n_epochs = 0,
+                         min_dist = min_dist)
+)
+
+lapply(l_embs_toy, function(emb) round(emb$fgraph, 2))
+```
+
+```{r toy-example-clusts}
+
+# dbscan clustering based on fgraphs
+
+# turn similarities into dissimilarities via 1 - v_ij
+l_fgraph_dis <- lapply(
+  l_embs_toy,
+  function(emb) {
+    temp <- as.matrix(1 - round(emb$fgraph, 2))
+    diag(temp) <- 0
+    as.dist(temp)
+  }
+)
+
+eps_range <- seq(0, 4, by = 0.01)
+
+# compute dbscan clusters for different eps values
+opt_eps <- 
+  lapply(
+    l_fgraph_dis, 
+    function(fgraph) {
+      sapply(
+        eps_range,
+        function(eps_val) {
+          dbs <- dbscan(fgraph, eps = eps_val, minPts = 3)
+          all(dbs$cluster == c(1, 1, 1, 2, 2, 2))
+        }
+      )
+    }
+)
+
+# epsilon ranges yielding optimal cluster results
+lapply(
+  opt_eps, 
+  function(eps) range(eps_range[eps])
+)
+```
+
+```{r toy-example-layout}
+# The same as before but on the embedding coordinates instead of the fgraph only
+
+# full grown embeddings (2D)
+set.seed(3) # !!! see https://github.com/jlmelville/uwot, A Note on Reproducibility !!!
+
+l_embs_toy_full <- lapply(
+  ks, 
+  function(k) uwot::umap(toy_dists, n_neighbors = k, min_dist = min_dist,
+                         # For reproducibility:
+                         a = 1.8956, b = 0.8006, approx_pow = TRUE, init = "spca")
+)
+
+eps_range_full <- seq(0, 40, by = 0.01)
+
+# compute dbscan clusters for different eps values
+opt_eps_full <- 
+  lapply(
+    l_embs_toy_full, 
+    function(emb) {
+      sapply(
+        eps_range_full,
+        function(eps_val) {
+          dbs <- dbscan(emb, eps = eps_val, minPts = 2)
+          all(dbs$cluster == c(1, 1, 1, 2, 2, 2))
+        }
+      )
+    }
+)
+
+# epsilon ranges yielding perfect cluster results
+lapply(
+  opt_eps_full, 
+  function(eps) range(eps_range_full[eps])
+)
+```
+
+```{r toy-example-rep}
+
+# !!! The results may not perfectly reproducible !!!
+# See https://github.com/jlmelville/uwot, A Note on Reproducibility 
+
+reps <- 25
+
+# computation time ~ 3 min
+l_embs_toy_rep <- lapply(
+  seq_len(reps),
+  function(rep) {
+   parallel::mclapply(
+      ks,
+      function(k) {
+        set.seed(rep)
+        uwot::umap(toy_dists, n_neighbors = k, min_dist = min_dist,
+                   # For reproducibility:
+                   a = 1.8956, b = 0.8006, approx_pow = TRUE, init = "spca")
+      },
+      mc.cores = 3
+    )
+  }
+)
+
+eps_range_full <- seq(0.01, 40, by = 0.01)
+opt_eps_rep <- 
+  lapply(
+    l_embs_toy_rep, 
+    function(embs) lapply(
+      embs, 
+      function(emb) {
+        sapply(
+          eps_range_full,
+          function(eps_val) {
+            dbs <- dbscan(emb, eps = eps_val, minPts = 3)
+            all(dbs$cluster == c(1, 1, 1, 2, 2, 2))
+          }
+        )
+      }
+    )
+)
+
+dt_ranges_k2 <- sapply(
+  opt_eps_rep, 
+  function(eps) range(eps_range_full[eps$k2])
+)
+
+dt_ranges_k3 <- sapply(
+  opt_eps_rep, 
+  function(eps) range(eps_range_full[eps$k3])
+)
+
+dt_ranges_k6 <- sapply(
+  opt_eps_rep, 
+  function(eps) range(eps_range_full[eps$k6])
+)
+
+# dt_ranges_k2
+apply(dt_ranges_k2, 1, mean)
+dt_ranges_k2[, which.min(dt_ranges_k2[2, ] - dt_ranges_k2[1, ])]
+
+# dt_ranges_k3
+apply(dt_ranges_k3, 1, mean)
+dt_ranges_k3[, which.min(dt_ranges_k3[2, ] - dt_ranges_k3[1, ])]
+
+# dt_ranges_k6
+apply(dt_ranges_k6, 1, mean)
+dt_ranges_k6[, which.min(dt_ranges_k6[2, ] - dt_ranges_k6[1, ])]
+```

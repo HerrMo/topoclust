@@ -1,0 +1,352 @@
+## Real data experiments
+
+```{r real-dat, eval=FALSE}
+
+load("data/coil20.RData")
+wine <- read.csv("data/wine.csv")
+pen <- read.csv("data/pendigits_csv.csv")
+mnist_tr <- read.csv("data/datasets/original_format/mnist_train.csv")
+mnist_te <- read.csv("data/datasets/original_format/mnist_test.csv")
+mnist <- rbind(mnist_tr, mnist_te)
+load_mnist() # Fashion mnist
+fmnist_x <- rbind(train$x, test$x)
+fmnist_lbls <- as.factor(c(train$y, test$y))
+
+fmnist_lbls_5 <- c(train$y, test$y)
+fmnist_lbls_5[fmnist_lbls %in% c(0, 3)] <- 1
+fmnist_lbls_5[fmnist_lbls == 1] <- 2
+fmnist_lbls_5[fmnist_lbls %in% c(2, 4, 6)] <- 3
+fmnist_lbls_5[fmnist_lbls == 8] <- 4
+fmnist_lbls_5[fmnist_lbls %in% c(5, 7, 9)] <- 5
+fmnist_lbls_5 <- as.factor(fmnist_lbls_5)
+
+l_dats <- list(
+  iris = list(
+    dat_X = apply(iris[, -5], 2, scale, center = FALSE), # features on different scales
+    dat_lbls = factor(iris[, 5], labels = 1:3),
+    eps_range = seq(0.01, 100, by = 0.01),
+    dat_name = "Iris"
+  ),
+  wine = list(
+    dat_X = apply(as.matrix(wine[, -1]), 2, scale), # features on much different scales and units!
+    dat_lbls = wine$Wine,
+    eps_range = seq(0.01, 100, by = 0.01),
+    dat_name = "Wine"
+  ),
+  coil = list(
+    dat_X = coil20[, -ncol(coil20)],
+    dat_lbls = as.numeric(coil20$Label),
+    eps_range = seq(0.01, 30, by = 0.01),
+    dat_nam = "COIL"
+  ),
+  pendigits = list(
+    dat_X = as.matrix(pen[, -17]),
+    dat_lbls = pen$class,
+    eps_range = seq(0.01, 75, by = 0.01),
+    dat_name = "pendigits"
+  ),
+  mnist = list(
+    dat_X = mnist[, -1],
+    dat_lbls = as.factor(mnist$label),
+    eps_range =  seq(0.01, 3, by = 0.01),
+    dat_name = "MNIST"
+  ),
+  fmnist = list(
+    dat_X = fmnist_x,
+    dat_lbls = fmnist_lbls,
+    dat_lbls5 = fmnist_lbls_5,
+    eps_range = seq(0.01, 3, by = 0.01),
+    dat_name = "FMNIST"
+  )
+)  
+
+# save(l_dats, file = "vignettes/data/sec4_real_dats.RData")
+```
+
+
+## 4.1 DBSCAN directly applied to the data
+
+```{r real-exp-dbs-dir, eval=FALSE}
+load("data/sec4_real_dats.RData")
+
+dat_selection <- c("iris", "wine", "coil", "pendigits", "mnist")
+# Note: Computations time >> 24 h for all settings (depending on system)
+# Only using the small datasets Iris, Wine, COIL: comp. time ~ 5 min
+# dat_selection <- c("iris", "wine", "coil")
+
+# FMNIST is excluded here and processed individually due to two label sets 
+# to reduce computation time
+l_fmnist <- l_dats["fmnist"]
+l_dats <- l_dats[dat_selection]
+
+# coil has few observations but many features, precomputing distances saves some time
+coil_x <- l_dats$coil$dat_X
+l_dats$coil$dat_X <- dist(l_dats$coil$dat_X)
+
+nic_names <- c("iris" = "Iris", "wine" = "Wine", "coil" = "COIL",
+               "pendigits" = "Pendigits", "mnist" = "MNIST", "fmnist" = "FMNIST")
+
+
+# clustering
+# computation time: several hours (depending on system >> 24 h possible)
+cores_to_use <- 6
+clust_res_real_dir <- parallel::mcmapply(
+  function(dat) cluster_res(
+    dat = dat$dat_X,
+    eps_range = dat$eps_range,
+    lbls = dat$dat_lbls
+  ),
+  dat = l_dats,
+  SIMPLIFY = FALSE,
+  mc.cores = cores_to_use
+)
+
+dt_res_real_d <- cbind(
+  Data = unlist(
+    lapply(
+      names(clust_res_real_dir), 
+      function(nam) rep(nam, nrow(clust_res_real_dir[[nam]])))
+  ),
+  Method = "DBSCAN",
+  eps = unlist(
+    lapply(
+      l_dats,   
+      function(dat) dat$eps_range)
+  ),
+  as.data.table(do.call(rbind, clust_res_real_dir))
+)
+
+
+dt_res_real_d$Data <- factor(
+  dt_res_real_d$Data, 
+  labels = nic_names[levels(factor(dt_res_real_d$Data))]
+)
+
+# FMNIST
+# computation time ~ 3h
+clust_res_fmnist_dir <- sapply(
+  l_fmnist$fmnist$eps_range,
+  function(eps) dbscan::dbscan(l_fmnist$fmnist$dat_X, eps = eps)$cluster # minPts = 5 (default)
+)
+  
+dt_res_fmnist_d <- lapply(
+  l_fmnist$fmnist[2:3], # label sets: 10 and 5
+  function(lbls) t(apply(clust_res_fmnist_dir, 2, function(res) performance(res, lbls)))
+)
+
+dt_res_fmnist_dir <- cbind(
+  Data = factor(rep(c("FMNIST-10", "FMNIST-5"), each = length(l_fmnist$fmnist$eps_range))),
+  Method = "DBSCAN",
+  eps = rep(l_fmnist$fmnist$eps_range, 2),
+  as.data.table(do.call(rbind, dt_res_fmnist_d))
+)
+
+dt_res_real_dir <- rbind(dt_res_real_d, dt_res_fmnist_dir)
+dt_res_real_dir[, NMI := round(dt_res_real_dir$NMI, 3)
+# save(dt_res_real_dir, file = "vignettes/data/res_real_dir.RData")
+```
+
+## 4.2 DBSCAN applied to UMAP embeddings
+
+```{r real-exp-dbs-umap, eval = FALSE}
+load("data/sec4_real_dats.RData")
+
+dat_selection <- c("iris", "wine", "coil", "pendigits", "mnist")
+
+# Note: Computations time >> 24 h for all settings (depending on system)
+# Only using the small datasets Iris, Wine, COIL: comp. time ~ 5 min
+dat_selection <- c("iris", "wine", "coil")
+
+# FMNIST is excluded here and processed individually due to two label sets 
+# to reduce computation time
+l_fmnist <- l_dats["fmnist"]
+l_dats <- l_dats[dat_selection]
+
+# DBSCAN on UMAP embeddings for different k
+k <- c(5, 10, 15)
+d <- 3
+# random state for reproducibility
+rand_state <- 256445188
+  
+emb_combs <- 
+  cbind.data.frame(
+    dat = rep(names(l_dats), each = length(k)),
+    k = rep(k, length(l_dats)),
+    rs = rand_state
+  )
+  
+
+# EMBEDDING
+# comp time ~ 0.5 h
+cores_to_use <- 5
+exp_real_embs <- mcmapply(
+  function(dat, k, rs) umap::umap(
+    as.matrix(l_dats[[dat]]$dat_X), 
+    n_neighbors = k, 
+    n_components = d, 
+    random_state = rs),
+  dat = emb_combs$dat,
+  k = emb_combs$k,
+  rs = emb_combs$rs,
+  SIMPLIFY = FALSE,
+  mc.cores = cores_to_use 
+)
+names(exp_real_embs) <- paste0(names(exp_real_embs), "_k", c(5, 10, 15))
+
+exp_combs <- 
+  cbind.data.frame(
+    setting = paste(emb_combs$dat, emb_combs$k, sep = "_"),
+    dat = rep(names(l_dats), each = length(k))
+  )
+
+exp_layout <- lapply(exp_real_embs, function(emb) emb$layout)
+names(exp_layout) <- exp_combs$setting
+
+# CLUSTERING
+# comp time several hours (depending on system >> 24 h possible)
+cores_to_use <- 3
+exp_real_res <- parallel::mcmapply(
+  function(set, dat) cluster_res(
+    dat = exp_layout[[set]],
+    eps_range = l_dats[[dat]]$eps_range,
+    lbls = l_dats[[dat]]$dat_lbls
+  ),
+  set = exp_combs$setting,
+  dat = exp_combs$dat,
+  SIMPLIFY = FALSE,
+  mc.cores = cores_to_use
+)
+
+eps_range_length <- sapply(l_dats, function(dat) length(dat$eps_range))
+
+dt_res_real_emb <- cbind(
+  Data = rep(dat_selection, length(k) * eps_range_length),
+  Method = "UMAP+DBSCAN",
+  eps = unname(unlist(
+    sapply(l_dats[dat_selection],
+           function(dat) rep(dat$eps_range, length(k)), simplify = FALSE))),
+  as.data.table(do.call(rbind, exp_real_res)),
+  k = rep(rep(k, length(dat_selection)), rep(eps_range_length, each = length(k)))
+)
+
+nic_names <- c("iris" = "Iris", "wine" = "Wine", "coil" = "COIL",
+               "pendigits" = "Pendigits", "mnist" = "MNIST", "fmnist" = "FMNIST")
+
+dt_res_real_emb$Data <- factor(
+  dt_res_real_emb$Data, 
+  labels = nic_names[levels(factor(dt_res_real_emb$Data))]
+)
+
+
+# FMNIST
+
+# embeddings 
+# comp time ~ 0.5 h
+cores_to_use <- 3
+exp_fm_embs <- mclapply(
+  c(5, 10, 15),
+  function(k) umap::umap(
+    as.matrix(l_fmnist$fmnist$dat_X), 
+    n_neighbors = k, 
+    n_components = 3, 
+    random_state = 256445188),
+  mc.cores = cores_to_use 
+)
+
+# clustering
+# ~ comp time ~ 3 h
+cores_to_use <- 3
+exp_fmnist_res <- parallel::mclapply(
+  exp_fm_embs,
+  function(dat) {
+    clusts <- lapply(
+      l_fmnist$fmnist$eps_range, 
+      function(eps) dbscan::dbscan(as.matrix(dat$layout), eps = eps)$cluster # minPts = 5 (default)
+    )
+    
+    res_lbls5 <- vapply(
+      clusts,
+      function(clust) performance(clust, l_fmnist$fmnist$dat_lbls5),
+      FUN.VALUE = numeric(2)
+    )
+    res_lbls10 <- vapply(
+      clusts, 
+      function(clust) performance(clust, l_fmnist$fmnist$dat_lbls), 
+      FUN.VALUE = numeric(2)
+    )
+    
+    rbind(res_lbls5, res_lbls10)
+  },
+  mc.cores = cores_to_use
+)
+
+names(exp_fmnist_res) <- k
+dt_res_fm_emb <- lapply(
+  exp_fmnist_res,
+  function(res) {
+    t_res <- t(res)
+    dt_res <- as.data.table(t_res)
+    dt_res
+  }                  
+)
+dt_res_fm_emb <- rbindlist(dt_res_fm_emb, use.names = TRUE, idcol = TRUE)
+dt_res_fm_emb <- rbind(dt_res_fm_emb[, c(1:3)], dt_res_fm_emb[, c(1, 4:5)])
+dt_res_fm_emb[, ":="(Data = rep(c("FMNIST-5", "FMNIST-10"), each = 900),
+                     Method = "UMAP+DBSCAN",
+                     eps = rep(l_fmnist$fmnist$eps_range, 6),
+                     k = .id)]
+dt_res_fm_emb <- dt_res_fm_emb[, .id := NULL][, c(3:6, 1:2)]
+
+
+# combine results
+dt_res_real_emb <- rbind(dt_res_real_emb, dt_res_fm_emb)
+
+# save(dt_res_real_emb, file = "vignettes/data/res_real_embs.RData")
+
+dt_res_real_full <- rbind(dt_res_real_dir, dt_res_real_emb)
+
+# save(dt_res_real_full, file = "vignettes/data/results/res_real_full.RData")
+```
+
+
+```{r real-plots, echo=FALSE, fig.height=11, fig.width = 7}
+load("data/results/res_real_full.RData")
+
+dt_res_real_long <- melt(
+  dt_res_real_full, 
+  id.vars = c("Data", "Method", "eps", "k"), 
+  measure.vars = c("ARI", "NMI"), 
+  variable.name = "Measure", 
+  value.name = "Performance"
+)
+
+dt_temp <- copy(
+  dt_res_real_long[, 
+                   .(maxPerformance = round(max(Performance), 2)), 
+                   by = c("Data", "Method", "k", "Measure")]
+)
+
+(dcast(dt_temp, 
+      Data ~ Method + k + Measure,
+      value.var = "maxPerformance")[c(1:2, 5, 3, 4, 6:7),
+                                    c(1:3, 8:9, 4:7)])
+
+plt_dir <- 
+  ggplot(dt_res_real_long[Method == "DBSCAN", ]) +
+    geom_line(aes(x = eps, y = Performance, color = Measure, lty = Measure)) +
+    facet_wrap(~ Data, scales = "free_x", ncol = 1) +
+    xlab(eps_tex) +
+    ylim(0, 1) +
+    ggtitle("DBSCAN")
+plt_emb <- 
+  ggplot(dt_res_real_long[k == 10, ]) +
+    geom_line(aes(x = eps, y = Performance, color = Measure, lty = Measure)) +
+    facet_wrap(~ Data, scales = "free_x", ncol = 1) +
+    xlab(eps_tex) +
+    ylim(0, 1) +
+    ggtitle("UMAP+DBSCAN")
+
+plt_dir + plt_emb + plot_layout(guides = "collect") & theme(legend.position = "bottom")
+# ggsave("vignettes/figures/sec4_plts_realdat_k10.png", device = "png", height = 11, width = 7)
+```
+
