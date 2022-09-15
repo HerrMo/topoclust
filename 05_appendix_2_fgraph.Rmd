@@ -17,6 +17,12 @@ k <- c(5, 10, 15)
 emb_combs <- expand.grid(k, dat_selection)
 names(emb_combs) <- c("k", "data")
 
+if (Sys.info()[["sysname"]] == "Windows") {
+  cores_to_use <- 1
+} else {
+  cores_to_use <- 3
+}
+
 # fuzzy graphs for different values of k (only fgraph --> n_epochs = 0)
 l_embs_fgr <- parallel::mcmapply(
   function(dat, k) uwot::umap(
@@ -28,7 +34,7 @@ l_embs_fgr <- parallel::mcmapply(
   dat = emb_combs$data,
   k = emb_combs$k,
   SIMPLIFY = FALSE,
-  mc.cores = 3
+  mc.cores = cores_to_use
 )
 
 # turn similarities into dissimilarities via 1 - v_ij
@@ -49,7 +55,12 @@ exp_combs <-
 names(l_emb_fgr_dis) <- exp_combs$setting
 
 
-cores_to_use <- 3
+if (Sys.info()[["sysname"]] == "Windows") {
+  cores_to_use <- 1
+} else {
+  cores_to_use <- 3
+}
+
 # computation time ~ 45 min
 exp_real_fgr_res <- parallel::mcmapply(
   function(set, dat) cluster_res(

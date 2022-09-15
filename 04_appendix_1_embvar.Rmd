@@ -13,7 +13,12 @@ rep_combs <- cbind.data.frame(
 )
   
 # ~ 1 min
-cores_to_use <- 4
+if (Sys.info()[["sysname"]] == "Windows") {
+  cores_to_use <- 1
+} else {
+  cores_to_use <- 4
+}
+
 exp_sec2_emb_rep_dists <- 
   parallel::mcMap(
     function(set, rand) {
@@ -34,7 +39,12 @@ exp_sec2_emb_rep_dists <-
 eps_range_rep <- seq(0.01, 15, by = 0.01)
 
 # ~ 8 h with eps_range_rep = seq(0.01, 15, by = 0.01)
-cores_to_use <- 5
+if (Sys.info()[["sysname"]] == "Windows") {
+  cores_to_use <- 1
+} else {
+  cores_to_use <- 5
+}
+
 exp_sec2_rep_res <- parallel::mclapply(
   exp_sec2_emb_rep_dists,
   function(dat) cluster_res(dat, eps_range = eps_range_rep, lbls = lbls),
@@ -187,7 +197,12 @@ colnames(emb_combs) <- c("reps", "k", "dat")
 emb_combs <- cbind(emb_combs,
                    rand_state = rand_state)
 
-cores_to_use <- 5
+if (Sys.info()[["sysname"]] == "Windows") {
+  cores_to_use <- 1
+} else {
+  cores_to_use <- 5
+}
+
 # computation time ~ 5 min
 l_embs <- parallel::mcmapply(
   function(dat, k, rs) umap::umap(

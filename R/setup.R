@@ -1,5 +1,14 @@
 # setup
 
+pkgs <- c("seriation", "dbscan", "mclust", "aricode", "mlbench", "ggplot2", "latex2exp",
+          "MASS", "uniformly", "patchwork", "data.table", "RColorBrewer", "parallel",
+          "uwot", "umap")
+
+to_install <- !pkgs %in% installed.packages()
+if (any(to_install)) {
+  install.packages(pkgs[to_install])
+}
+
 library(seriation)
 library(dbscan)
 library(mclust) # adjusted rand index
@@ -11,9 +20,10 @@ library(MASS)
 library(uniformly)
 library(patchwork)
 library(data.table)
-library(ggplot2)
 library(RColorBrewer)
 library(parallel)
+library(uwot)
+library(umap)
 
 eps_tex <- TeX("$\\epsilon$")
 

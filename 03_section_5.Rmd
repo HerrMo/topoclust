@@ -2,11 +2,11 @@
 
 ```{r real-dat, eval=FALSE}
 
-load("data/coil20.RData")
-wine <- read.csv("data/wine.csv")
-pen <- read.csv("data/pendigits_csv.csv")
-mnist_tr <- read.csv("data/datasets/original_format/mnist_train.csv")
-mnist_te <- read.csv("data/datasets/original_format/mnist_test.csv")
+load("data/datasets/coil20.RData")
+wine <- read.csv("data/datasets/wine.csv")
+pen <- read.csv("data/datasets/pendigits_csv.csv")
+mnist_tr <- read.csv("data/datasets/mnist_train.csv")
+mnist_te <- read.csv("data/datasets/mnist_test.csv")
 mnist <- rbind(mnist_tr, mnist_te)
 load_mnist() # Fashion mnist
 fmnist_x <- rbind(train$x, test$x)
@@ -89,7 +89,12 @@ nic_names <- c("iris" = "Iris", "wine" = "Wine", "coil" = "COIL",
 
 # clustering
 # computation time: several hours (depending on system >> 24 h possible)
-cores_to_use <- 6
+if (Sys.info()[["sysname"]] == "Windows") {
+  cores_to_use <- 1
+} else {
+  cores_to_use <- 6
+}
+
 clust_res_real_dir <- parallel::mcmapply(
   function(dat) cluster_res(
     dat = dat$dat_X,
@@ -178,7 +183,12 @@ emb_combs <-
 
 # EMBEDDING
 # comp time ~ 0.5 h
-cores_to_use <- 5
+if (Sys.info()[["sysname"]] == "Windows") {
+  cores_to_use <- 1
+} else {
+  cores_to_use <- 5
+}
+
 exp_real_embs <- mcmapply(
   function(dat, k, rs) umap::umap(
     as.matrix(l_dats[[dat]]$dat_X), 
@@ -204,7 +214,12 @@ names(exp_layout) <- exp_combs$setting
 
 # CLUSTERING
 # comp time several hours (depending on system >> 24 h possible)
-cores_to_use <- 3
+if (Sys.info()[["sysname"]] == "Windows") {
+  cores_to_use <- 1
+} else {
+  cores_to_use <- 3
+}
+
 exp_real_res <- parallel::mcmapply(
   function(set, dat) cluster_res(
     dat = exp_layout[[set]],
@@ -242,7 +257,12 @@ dt_res_real_emb$Data <- factor(
 
 # embeddings 
 # comp time ~ 0.5 h
-cores_to_use <- 3
+if (Sys.info()[["sysname"]] == "Windows") {
+  cores_to_use <- 1
+} else {
+  cores_to_use <- 3
+}
+
 exp_fm_embs <- mclapply(
   c(5, 10, 15),
   function(k) umap::umap(
@@ -255,7 +275,12 @@ exp_fm_embs <- mclapply(
 
 # clustering
 # ~ comp time ~ 3 h
-cores_to_use <- 3
+if (Sys.info()[["sysname"]] == "Windows") {
+  cores_to_use <- 1
+} else {
+  cores_to_use <- 3
+}
+
 exp_fmnist_res <- parallel::mclapply(
   exp_fm_embs,
   function(dat) {

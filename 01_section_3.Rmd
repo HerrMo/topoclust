@@ -82,7 +82,12 @@ exp_sec2_emb_dists <-
 
 ```{r sec2-cluster-res, eval=FALSE}
 # approx. computation time for eps_range = seq(0.01, 50, by = 0.01): 2.5 h on 7 cores
-cores_to_use <- 7
+if (Sys.info()[["sysname"]] == "Windows") {
+  cores_to_use <- 1
+} else {
+  cores_to_use <- 7
+}
+
 exp_sec2_res <- parallel::mclapply(
   c(exp_sec2_dists, exp_sec2_emb_dists),
   function(dat) cluster_res(dat, eps_range = eps_range, lbls = lbls),
@@ -271,6 +276,12 @@ lapply(
 
 reps <- 25
 
+if (Sys.info()[["sysname"]] == "Windows") {
+  cores_to_use <- 1
+} else {
+  cores_to_use <- 3
+}
+
 # computation time ~ 3 min
 l_embs_toy_rep <- lapply(
   seq_len(reps),
@@ -283,7 +294,7 @@ l_embs_toy_rep <- lapply(
                    # For reproducibility:
                    a = 1.8956, b = 0.8006, approx_pow = TRUE, init = "spca")
       },
-      mc.cores = 3
+      mc.cores = cores_to_use
     )
   }
 )
