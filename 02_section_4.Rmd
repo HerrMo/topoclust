@@ -1,4 +1,4 @@
-## 3.1.1 Nested sphere example
+## 4.1.1 Nested sphere example
 
 ```{r spheres}
 # data
@@ -123,7 +123,7 @@ ggplot(dt_sphs_res_long) +
 # ggsave("vignettes/figures/sec3_nested_spheres_clust.png", device = "png", width = 8.5, height = 4.5)
 ```
 
-## 3.1.1 Impossible data
+## 4.1.2 Impossible data
 
 ```{r app2-data}
 # Data
@@ -280,7 +280,7 @@ plt_imp_dat / plt_dbs / (plt_umap_2d + plt_umap_3d) / plt_clust_res / wrap_plots
 ![](figures/app2_impdata.png)
 
 
-## 3.2 Outlier and noise points
+## 4.2 Outlier and noise points
 
 ```{r outs-and-noise}
 # data setup
@@ -346,7 +346,7 @@ plt_noise_emb <-
 # ggsave("vignettes/figures/sec3_plts_outs.png", device = "png", width = 9, height = 5.5)
 ```
 
-## 3.3 Connected components
+## 4.3 Connected components
 
 ```{r connected-comps}
 # data setup
@@ -435,7 +435,7 @@ plts_brdg / plts_overlap + plot_annotation(tag_levels = "A")
 # ggsave("vignettes/figures/sec3_connected.png", device = "png", width = 10, height = 8)
 ```
 
-## 3.4 FCPS data
+## 4.4 FCPS data
 
 ```{r fcps, eval=FALSE}
 

@@ -1,4 +1,4 @@
-## 2.1 Experiments on the synthetic datasets $E_{100}$, $E_{1000}$, $U_{3}$ & $U_{1003}$.
+## 3.1 Experiments on the synthetic datasets $E_{100}$, $E_{1000}$, $U_{3}$ & $U_{1003}$.
 
 ```{r sec2-exp-settings}
 # Number of clusters
@@ -149,7 +149,7 @@ dt_temp <- dt_sec2_res_long
 dt_temp[dt_temp[, .I[which.max(Performance)], by = c("method", "nic_set", "Measure")]$V1]
 ```
 
-## 2.2 Toy example  
+## 3.2 Toy example  
 
 Experiments on the simply toy example. 
 
