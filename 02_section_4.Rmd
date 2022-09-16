@@ -52,7 +52,12 @@ embs_sphs <- list(emb7 = exp_sphs_emb7, emb15 = exp_sphs_emb15)
 eps_range_sphs <- seq(0.01, 10, by = 0.01)
 
 # ~ 4.1 h for n = 10000 & eps_range = seq(0.01, 10, by = 0.01)
-cores_to_use <- 3
+
+if (Sys.info()[["sysname"]] == "Windows") {
+  cores_to_use <- 1
+} else {
+  cores_to_use <- 3
+}
 exp_sphs_res <- parallel::mclapply(
   list(exp_sphs_dat, exp_sphs_emb7$layout, exp_sphs_emb15$layout),
   function(dat) cluster_res(dat, eps_range = eps_range_sphs, lbls = lbls_sphs),
@@ -158,7 +163,12 @@ umap_3d <- umap::umap(imp_dat, n_neighbors = 5, n_components = 3)
 eps_range_imp <- seq(0.01, 15, by = 0.01)
 
 # computation time ~ 1 min
-cores_to_use <- 3
+if (Sys.info()[["sysname"]] == "Windows") {
+  cores_to_use <- 1
+} else {
+  cores_to_use <- 3
+}
+
 exp_res_imp <- parallel::mclapply(
   list(imp_dat, umap_2d$layout, umap_3d$layout),
   function(dat) cluster_res(dat, eps_range = eps_range_imp, lbls = imp_lbls),
@@ -484,7 +494,12 @@ exp_fcps_embs <- lapply(
 ## clustering
 
 # comp time: ~ 20 m
-cores_to_use <- 5
+if (Sys.info()[["sysname"]] == "Windows") {
+  cores_to_use <- 1
+} else {
+  cores_to_use <- 5
+}
+
 exp_fcps_res <- parallel::mcmapply(
   function(dat, lbls) cluster_res(
     dat = dat, 
