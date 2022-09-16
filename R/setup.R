@@ -6,7 +6,7 @@ pkgs <- c("rmarkdown", "knitr", "MASS", "umap", "uwot", "parallel", "scatterplot
 
 to_install <- !pkgs %in% installed.packages()
 if (any(to_install)) {
-  install.packages(pkgs[to_install])
+  install.packages(pkgs[to_install], repos = "http://cran.us.r-project.org")
 }
 
 library(seriation)
