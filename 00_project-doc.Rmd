@@ -37,8 +37,7 @@ for the individual experiments (obtained on a standard notebook with Linux Mint 
 ```{r setup, message=FALSE}  
 knitr::opts_chunk$set(
   message = FALSE,
-  warning = FALSE,
-  eval = FALSE
+  warning = FALSE
 )
 
 source("R/setup.R")
