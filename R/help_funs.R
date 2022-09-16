@@ -44,11 +44,11 @@ load_mnist <- function() {
     close(f)
     y
   }
-  train <<- load_image_file('data/train-images-idx3-ubyte')
-  test <<- load_image_file('data/t10k-images-idx3-ubyte')
+  train <<- load_image_file('data/datasets/train-images-idx3-ubyte')
+  test <<- load_image_file('data/datasets/t10k-images-idx3-ubyte')
 
-  train$y <<- load_label_file('data/train-labels-idx1-ubyte')
-  test$y <<- load_label_file('data/t10k-labels-idx1-ubyte')
+  train$y <<- load_label_file('data/datasets/train-labels-idx1-ubyte')
+  test$y <<- load_label_file('data/datasets/t10k-labels-idx1-ubyte')
 }
 
 # function to plot embeddings
