@@ -1,8 +1,8 @@
 # setup
 
-pkgs <- c("seriation", "dbscan", "mclust", "aricode", "mlbench", "ggplot2", "latex2exp",
-          "MASS", "uniformly", "patchwork", "data.table", "RColorBrewer", "parallel",
-          "uwot", "umap")
+pkgs <- c("rmarkdown", "knitr", "MASS", "umap", "uwot", "parallel", "scatterplot3d",
+          "scales", "aricode", "dbscan", "ggrepel", "mclust", "data.table", "ggplot2",
+          "latex2exp", "mlbench", "patchwork", "RColorBrewer", "seriation",  "uniformly")
 
 to_install <- !pkgs %in% installed.packages()
 if (any(to_install)) {
