@@ -1,9 +1,7 @@
 ---
 title: "Project Documentation"
-output:
-  pdf_document:
-  html_document:
-    df_print: paged
+output: pdf_document
+# output: html_document
 ---
 
 # Summary
@@ -30,7 +28,7 @@ Files to be placed in folder `data/datasets`
 # Technical aspects
 This document gathers all necessary information for reproducibility. In the default setup, knitting the document takes 
 a couple (~ 10) minutes. All relevant code will be part of the output, computation heavy experiments are -- however --
-not executed. The corresponding code chunks are set to 'eval=FALSE' and provide rough estimates for computation times 
+not executed. The corresponding code chunks are set to `eval=FALSE` and provide rough estimates for computation times 
 for the individual experiments (obtained on a standard notebook with Linux Mint 19.2 Cinnamon, 1.90GHz × 4, 16 GB RAM, 
 8 cores). To run individual experiments the setup chunk needs to be run!
 
