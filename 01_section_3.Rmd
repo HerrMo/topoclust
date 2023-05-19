@@ -45,17 +45,6 @@ exp_settings <-
 ```
 
 ```{r sec2-creating-data} 
-cluster_dat <- function(p, means, sigs, n) {
-  cov_mats <- lapply(sigs, function(sig) diag(rep(sig, p * p), p, p))
-
-  clusts <- mapply(function(mu, sig) MASS::mvrnorm(n = n, mu = rep(mu, p), Sigma = sig),
-                   mu = means,
-                   sig = cov_mats,
-                   SIMPLIFY = FALSE)
-
-  do.call(rbind, clusts)
-}
-
 set.seed(112)
 exp_sec2_dat <- lapply(exp_settings, function(set) do.call(cluster_dat, set))
 # set random states for UMAP embeddings reproducibility 
@@ -147,6 +136,115 @@ plt_dbs + plt_dbsumap + plot_layout(guides = "collect") & theme(legend.position 
 dt_sec2_res_long[method == "DBSCAN", max(Performance), by = c("nic_set", "Measure")]
 dt_temp <- dt_sec2_res_long
 dt_temp[dt_temp[, .I[which.max(Performance)], by = c("method", "nic_set", "Measure")]$V1]
+```
+
+
+```{r sec2-samp-var, eval = FALSE}
+# Sampling variability
+source("R/rep_fun.R")
+
+# REPLICATIONS
+REPS <- 50
+eps_rng <- c(-0.2, 0, 0.2)
+
+# SETTINGS
+settings <- c("e100", "e1000", "u3", "u1003")
+
+# Number of clusters
+n_g <- 3
+n <- 500 # obs per clust
+lbls <- rep(seq_len(3), each = n)
+
+# Data
+equal_dens <-
+  list(
+    means = c(0, 0.5, 1),
+    n = n,
+    sigs = rep(1, n_g)
+  )
+
+unequal_dens <-
+  list(
+    p = 3,
+    n = n,
+    means = c(0, 3, 7),
+    sigs = c(0.1, 1, 3)
+  )
+
+exp_settings <-
+  list(
+    e100 = c(
+      list(p = 100),
+      equal_dens
+    ),
+    e1000 = c(
+      list(p = 1000),
+      equal_dens
+    ),
+    u3 = unequal_dens,
+    u1003 = unequal_dens
+  )
+
+# OPTIMAL EPS VALUES (w.r.t ARI)
+load("data/results/res_sec2_long-range.RData")
+eps_opt_vals <- dt_sec2_res_long[dt_sec2_res_long[Measure == "ARI", .I[which.max(Performance)], by = c("method", "setting", "Measure")]$V1]
+
+
+# RUN EXPS
+if (Sys.info()[["sysname"]] == "Windows") {
+  cores_to_use <- 1
+} else {
+  cores_to_use <- 4
+}
+
+# comp time: ~ 15 min on four cores
+res_reps <- parallel::mclapply(
+  settings,
+  function(set) rep_fun(setting = set, opt_vals = eps_opt_vals, reps = REPS, seed = TRUE, exp_settings = exp_settings),
+  mc.cores = cores_to_use
+)
+
+eps_opt <- TeX("$\\epsilon_{opt}$")
+eps_opt_p <- TeX("$\\epsilon_{opt} + 0.2$")
+eps_opt_m <- TeX("$\\epsilon_{opt} - 0.2$")
+
+dt_res_reps <- rbindlist(res_reps)
+dt_res_reps[, Eps := ordered(rep(c("-0.2", eps_opt, "+0.2"), 400), levels =  c("-0.2", eps_opt, "+0.2"))]
+
+dt_res_reps_long <- melt(
+  dt_res_reps,
+  id.vars = c("set", "rep", "method", "eps", "Eps"),
+  measure.vars = c("ARI", "NMI"),
+  variable.name = "measure",
+  value.name = "performance")
+
+dt_res_reps_long[, Method := paste(method, eps, sep = ": eps = ")]
+dt_res_reps_long[, Eps := ordered(rep(c("-0.2", eps_opt, "+0.2"), 800), levels =  c("-0.2", eps_opt, "+0.2"))]
+dt_res_reps_long[, nic_set := ordered(set, levels =  c("e100", "e1000", "u3", "u1003"))]
+setnames(dt_res_reps_long, c("measure", "performance"), c("Measure", "Performance"))
+
+nic_sets <- c(
+  `e100` = "E100",
+  `e1000` = "E1000",
+  `u3` = "U3",
+  `u1003` = "U1003"
+)
+
+rep_smry <-
+  dt_res_reps[,
+              .(meanARI = round(mean(ARI), 2),
+                sdARI = round(sd(ARI), 2),
+                meanNMI = round(mean(NMI), 2),
+                sdNMI = round(sd(NMI), 2)),
+              by = c("set", "method", "eps", "Eps")]
+
+rep_smry[Eps == "epsilon[opt]", .(set, method, meanARI, sdARI, meanNMI, sdNMI)]
+```
+
+```{r sec2-samp-var-res, echo=FALSE, fig.width = 8, fig.height = 10.5}
+load("data/results/res_reps.RData")
+
+rep_smry[Eps == "epsilon[opt]", .(set, method, meanARI, sdARI, meanNMI, sdNMI)]
 ```
 
 ## 3.2 Toy example  
