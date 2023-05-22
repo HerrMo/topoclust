@@ -1,3 +1,14 @@
+cluster_dat <- function(p, means, sigs, n) {
+  cov_mats <- lapply(sigs, function(sig) diag(rep(sig, p * p), p, p))
+
+  clusts <- mapply(function(mu, sig) MASS::mvrnorm(n = n, mu = rep(mu, p), Sigma = sig),
+                   mu = means,
+                   sig = cov_mats,
+                   SIMPLIFY = FALSE)
+
+  do.call(rbind, clusts)
+}
+
 # cluster_res
 #
 # Computes dbscan cluster results (ARI and NMI) for a set of epsilon values
@@ -129,4 +140,56 @@ extract_points.matrix <- function(embedding, ndim = dim(embedding)[2]) {
 }
 
 
+# help function to compute silhouette scores in the tuning experiments
 
+s_scores <- function(dat, params) {
+
+  ump_range <- l_params[[1]]
+  eps_range <- l_params[[2]]
+
+  distances <- dist(dat)
+  res_ump <- sapply(ump_range, function(k) {
+    # UMAP embedding
+    umap_emb <- umap(
+      as.matrix(distances),
+      n_neighbors = k,
+      n_components = 3,
+      random_state = 556665134,
+      input = "dist"
+    )
+
+    # compute distances
+    distances_ump <- dist(umap_emb$layout)
+    # tune epsilon parameter using silhouette index
+    eps_scores <- sapply(eps_range, function(eps) {
+      dbscan_res <- dbscan::dbscan(umap_emb$layout, eps = eps)
+      if (length(unique(dbscan_res$cluster)) == 1) {
+        return(-1)
+      }
+      s_score <- silhouette(dbscan_res$cluster, distances_ump)
+      s_score <- mean(s_score[, 3])
+      s_score
+    })
+    eps_scores
+  })
+
+  res_dir <- sapply(eps_range, function(eps) {
+    dbscan_res <- dbscan::dbscan(distances, eps = eps)
+    if (length(unique(dbscan_res$cluster)) == 1) {
+      return(-1)
+    }
+    s_score <- silhouette(dbscan_res$cluster, distances)
+    s_score <- mean(s_score[, 3])
+    s_score
+  })
+
+  combs <- expand.grid(eps = eps_range, k = ump_range)
+
+  ump_scores <- as.data.table(combs)
+  ump_scores[, scores := as.vector(res_ump)]
+
+  combs2 <- expand.grid(eps = eps_range, k = 0)
+  dbs_scores <- cbind(combs2, scores = res_dir)
+
+  rbind(ump_scores, dbs_scores)
+}

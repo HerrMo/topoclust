@@ -2,7 +2,8 @@
 
 pkgs <- c("rmarkdown", "knitr", "MASS", "umap", "uwot", "parallel", "scatterplot3d",
           "scales", "aricode", "dbscan", "ggrepel", "mclust", "data.table", "ggplot2",
-          "latex2exp", "mlbench", "patchwork", "RColorBrewer", "seriation",  "uniformly")
+          "latex2exp", "mlbench", "patchwork", "RColorBrewer", "seriation",  "uniformly",
+          "cluster")
 
 to_install <- !pkgs %in% installed.packages()
 if (any(to_install)) {
@@ -24,6 +25,7 @@ library(RColorBrewer)
 library(parallel)
 library(uwot)
 library(umap)
+library(cluster)
 
 eps_tex <- TeX("$\\epsilon$")
 

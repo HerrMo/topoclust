@@ -64,7 +64,7 @@ l_dats <- list(
 ```
 
 
-## 4.1 DBSCAN directly applied to the data
+## 5.1 DBSCAN directly applied to the data
 
 ```{r real-exp-dbs-dir, eval=FALSE}
 load("data/sec4_real_dats.RData")
@@ -151,7 +151,7 @@ dt_res_real_dir[, NMI := round(dt_res_real_dir$NMI, 3)
 # save(dt_res_real_dir, file = "vignettes/data/res_real_dir.RData")
 ```
 
-## 4.2 DBSCAN applied to UMAP embeddings
+## 5.2 DBSCAN applied to UMAP embeddings
 
 ```{r real-exp-dbs-umap, eval = FALSE}
 load("data/sec4_real_dats.RData")
@@ -369,9 +369,73 @@ plt_emb <-
     facet_wrap(~ Data, scales = "free_x", ncol = 1) +
     xlab(eps_tex) +
     ylim(0, 1) +
-    ggtitle("UMAP+DBSCAN")
+    ggtitle("UMAP(k=10) + DBSCAN")
 
 plt_dir + plt_emb + plot_layout(guides = "collect") & theme(legend.position = "bottom")
 # ggsave("vignettes/figures/sec4_plts_realdat_k10.png", device = "png", height = 11, width = 7)
 ```
 
+## 5.3 Tuning 
+
+```{r real-tuning, eval = FALSE, fig.height=11, fig.width = 7}
+l_dat <- list(
+  "iris" = iris[, -5], # exclude species column
+  "coil" = coil20[, -ncol(coil20)],
+  "wine" = apply(as.matrix(wine[, -1]), 2, scale), # features on much different scales and units!
+  "pen"  = as.matrix(pen[, -17])
+)
+
+# EXPERIMENTS
+
+# tune n_neighbors (k) parameter in UMAP and epsilon in DBSCAN
+n_neighbors_range <- seq(5, 50, by = 5)
+eps_range <- seq(0.1, 50, length.out = 100)
+
+l_params <- list(n_neighbors_range, eps_range)
+
+## All data
+
+## computation time: ~ 3 h (on two cores)
+# with
+# - n_neighbors_range <- seq(5, 50, by = 5)
+# - eps_range <- seq(0.1, 25, length.out = 50)
+
+if (Sys.info()[["sysname"]] == "Windows") {
+  cores_to_use <- 1
+} else {
+  cores_to_use <- 2
+}
+
+l_silhouette_e50 <-
+  parallel::mclapply(
+    l_dat,
+    function(dat) s_scores(dat = dat, params = l_params),
+    mc.cores = 2
+  )
+
+names(l_silhouette_e50) <- c("Iris", "Wine", "Pendigits", "COIL")
+```
+
+```{r real-tuning-plots, echo=FALSE}
+load("data/results/res_tuning_k5-50_e0-50.RData")
+
+plot_temp <- function(l_dats) {
+  plts <- vector(mode = "list", 4)
+  for (i in seq_along(l_dats)) {
+    plts[[i]] <-
+      ggplot() +
+      geom_line(data = l_dats[[i]][k %in% c(5:25)], aes(x = eps, y = scores, group = k, color = k), size = 1) +
+      geom_line(data = l_dats[[i]][!(k %in% c(0, 5:25))], aes(x = eps, y = scores, group = k, color = k), alpha = 0.5) +
+      geom_line(data = l_dats[[i]][k == 0], aes(x = eps, y = scores), lty = 2, size = 1) +
+      scale_color_viridis_c(direction = -1) +
+      ylim(c(-1, 1)) +
+      ggtitle(names(l_dats)[i]) +
+      ylab("ASW") +
+      xlab(latex2exp::TeX("$\\epsilon$")) +
+      theme_bw()
+  }
+  (plts[[1]] + plts[[2]])/(plts[[3]] + plts[[4]]) + plot_layout(guides = "collect") & theme(legend.position = "bottom")
+}
+
+plot_temp(l_silhouette_e50)
+```
