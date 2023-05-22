@@ -1,0 +1,42 @@
+```{r sampling-var-plots, echo = FALSE, fig.width = 7.5, fig.height = 10}
+eps_opt <- TeX("$\\epsilon_{opt}$")
+eps_opt_p <- TeX("$\\epsilon_{opt} + 0.2$")
+eps_opt_m <- TeX("$\\epsilon_{opt} - 0.2$")
+
+dt_res_reps_long <- melt(
+  dt_res_reps,
+  id.vars = c("set", "rep", "method", "eps", "Eps"),
+  measure.vars = c("ARI", "NMI"),
+  variable.name = "measure",
+  value.name = "performance")
+
+dt_res_reps_long[, Method := paste(method, eps, sep = ": eps = ")]
+dt_res_reps_long[, Eps := ordered(rep(c("-0.2", eps_opt, "+0.2"), 800), levels =  c("-0.2", eps_opt, "+0.2"))]
+dt_res_reps_long[, nic_set := ordered(set, levels =  c("e100", "e1000", "u3", "u1003"))]
+setnames(dt_res_reps_long, c("measure", "performance"), c("Measure", "Performance"))
+
+nic_sets <- c(
+  `e100` = "E100",
+  `e1000` = "E1000",
+  `u3` = "U3",
+  `u1003` = "U1003"
+)
+
+ggbox_umap <-
+  ggplot(dt_res_reps_long[method == "UMAP+DBSCAN", ]) +
+  geom_boxplot(aes(x = Eps, y = Performance, fill = Measure)) +
+  facet_wrap(~ nic_set, ncol = 1, labeller = as_labeller(nic_sets)) +
+  ggtitle("B: DBSCAN + UMAP-5") +
+  xlab(eps_tex) +
+  scale_x_discrete(labels=c(eps_opt_m, eps_opt, eps_opt_p))
+
+ggbox_dbs <-
+  ggplot(dt_res_reps_long[method == "DBSCAN", ]) +
+  geom_boxplot(aes(x = Eps, y = Performance, fill = Measure)) +
+  facet_wrap(~ nic_set, ncol = 1, labeller = as_labeller(nic_sets)) +
+  ggtitle("A: DBSCAN") +
+  xlab(eps_tex) +
+  scale_x_discrete(labels=c(eps_opt_m, eps_opt, eps_opt_p))
+
+ggbox_dbs + ggbox_umap + plot_layout(guides = "collect") & theme(legend.position = "bottom")
+```

@@ -211,25 +211,6 @@ eps_opt_m <- TeX("$\\epsilon_{opt} - 0.2$")
 dt_res_reps <- rbindlist(res_reps)
 dt_res_reps[, Eps := ordered(rep(c("-0.2", eps_opt, "+0.2"), 400), levels =  c("-0.2", eps_opt, "+0.2"))]
 
-dt_res_reps_long <- melt(
-  dt_res_reps,
-  id.vars = c("set", "rep", "method", "eps", "Eps"),
-  measure.vars = c("ARI", "NMI"),
-  variable.name = "measure",
-  value.name = "performance")
-
-dt_res_reps_long[, Method := paste(method, eps, sep = ": eps = ")]
-dt_res_reps_long[, Eps := ordered(rep(c("-0.2", eps_opt, "+0.2"), 800), levels =  c("-0.2", eps_opt, "+0.2"))]
-dt_res_reps_long[, nic_set := ordered(set, levels =  c("e100", "e1000", "u3", "u1003"))]
-setnames(dt_res_reps_long, c("measure", "performance"), c("Measure", "Performance"))
-
-nic_sets <- c(
-  `e100` = "E100",
-  `e1000` = "E1000",
-  `u3` = "U3",
-  `u1003` = "U1003"
-)
-
 rep_smry <-
   dt_res_reps[,
               .(meanARI = round(mean(ARI), 2),
@@ -242,7 +223,15 @@ rep_smry[Eps == "epsilon[opt]", .(set, method, meanARI, sdARI, meanNMI, sdNMI)]
 ```
 
 ```{r sec2-samp-var-res, echo=FALSE, fig.width = 8, fig.height = 10.5}
-load("data/results/res_reps.RData")
+load("data/results/res_sec2_samplvar.RData")
+
+rep_smry <-
+  dt_res_reps[,
+              .(meanARI = round(mean(ARI), 2),
+                sdARI = round(sd(ARI), 2),
+                meanNMI = round(mean(NMI), 2),
+                sdNMI = round(sd(NMI), 2)),
+              by = c("set", "method", "eps", "Eps")]
 
 rep_smry[Eps == "epsilon[opt]", .(set, method, meanARI, sdARI, meanNMI, sdNMI)]
 ```

@@ -1,0 +1,46 @@
+
+```{r real-emb-viz, echo=FALSE, fig.width = 8, fig.height = 5}
+load("data/sec4_real_dats.RData")
+load("data/embs_2D_layout_real_dat.RData")
+
+# comp time: ~ 0.5 h
+# l_real_embs <- lapply(
+#   l_dats,
+#   function(dat) umap::umap(
+#     dat$dat_X, 
+#     n_neighbors = 10, 
+#     n_components = 2,
+#     rand_state = 256470832
+#   )
+# )
+# save(l_real_embs, file = "vignettes/data/embs_2D_layout_real_dat.RData")
+
+nic_names <- c("Iris", "Wine", "COIL", "Pendigits", "MNIST", "FMNIST (10 classes)")
+l_real_emb_plts <- lapply(
+  seq_along(l_real_embs),
+  function(i) {
+    layout <- l_real_embs[[i]]$layout
+    labels <- l_dats[[i]]$dat_lbls
+    dat_nam <- nic_names[i]
+    pt <- 
+      plot_emb(layout, as.factor(labels)) +
+      ggtitle(dat_nam) +
+      xlab("UMAP 1") + ylab("UMAP 2") 
+    if (!dat_nam %in% c("Iris", "Wine")) {
+      pt$layers[[1]]$aes_params$alpha <- 0.1
+    } else {
+      pt$layers[[1]]$aes_params$alpha <- 0.5
+    }
+    pt
+  }
+)  
+
+l_fmnist5_plt <- plot_emb(l_real_embs$fmnist$layout, as.factor(l_dats$fmnist$dat_lbls5)) +
+      ggtitle("FMNIST (5 classes)") +
+      xlab("UMAP 1") + ylab("UMAP 2") 
+l_fmnist5_plt$layers[[1]]$aes_params$alpha <- 0.1
+
+wrap_plots(c(l_real_emb_plts, list(plot_spacer(), l_fmnist5_plt)))
+# ggsave("vignettes/figures/sec4_plts_embs_k10.png", device = "png", width = 8, height = 5)
+```
+

@@ -57,17 +57,22 @@ source("R/help_funs.R")
 ```{r child = '03_section_5.Rmd'}
 ```
 
-# Appendix 1
+# Appendix A
 
-```{r child = '04_appendix_1_embvar.Rmd'}
+```{r child = '04_appendix_samplvar.Rmd'}
 ```
 
-# Appendix 2
+# Appendix B
 
-```{r child = '05_appendix_2_fgraph.Rmd'}
+```{r child = '05_appendix_embvar.Rmd'}
 ```
 
-# Appendix 3
+# Appendix C
 
-```{r child = '06_appendix_3_embplots.Rmd'}
+```{r child = '06_appendix_fgraph.Rmd'}
+```
+
+# Appendix D
+
+```{r child = '07_appendix_embplots.Rmd'}
 ```
