@@ -414,6 +414,18 @@ l_silhouette_e50 <-
   )
 
 names(l_silhouette_e50) <- c("Iris", "Wine", "Pendigits", "COIL")
+
+# Optimal parameter configuration: Commented out to minimise space requirements
+# lapply(l_silhouette_e50, function(x) x[scores %in% x[, max(scores), by = k][order(V1)]$V1])
+
+umap_opt <- umap(
+  l_dat$pen, 
+  n_neighbors = 20, 
+  n_components = 3,
+  random_state = 556665134
+)
+
+dbscan(umap_opt$layout, eps = 41.431313)
 ```
 
 ```{r real-tuning-plots, echo=FALSE}
@@ -438,4 +450,8 @@ plot_temp <- function(l_dats) {
 }
 
 plot_temp(l_silhouette_e50)
+
+# lapply(l_silhouette_e50, function(x) x[scores %in% x[, max(scores), by = k][order(V1)]$V1])
+pen <- read.csv("data/datasets/pendigits_csv.csv")
+dbscan(umap(as.matrix(pen[, -17]), n_neighbors = 20, n_components = 3, random_state = 556665134)$layout, eps = 41.431313)
 ```
